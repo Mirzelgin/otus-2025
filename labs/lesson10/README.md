@@ -140,3 +140,11 @@ interface vlan 1
 **A:** Согласно диаграмме ниже идентификатор подсети в данном адресе равен 0
 
 ![](img/ipv6_struct.png)
+
+## Файлы конфигураций и packet tracer
+Пароль консоли: *cisco*
+Пароль привилегированного режима: *class*
+
+- [S1](conf/S1.conf)
+- [R1](conf/R1.conf)
+- [Cisco PT](lesson10.pkt)
