@@ -143,6 +143,7 @@ interface vlan 1
 
 ## Файлы конфигураций и packet tracer
 Пароль консоли: *cisco*
+
 Пароль привилегированного режима: *class*
 
 - [S1](conf/S1.conf)
