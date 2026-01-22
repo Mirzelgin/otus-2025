@@ -15,3 +15,30 @@
 - Настройка маршрутизатора для доступа по протоколу SSH
 - Настройка коммутатора для доступа по протоколу SSH
 - SSH через интерфейс командной строки (CLI) коммутатора
+
+## Настройка топологии и конфигурация основных параметров маршрутизатора
+Строим топологию
+
+![](img/PacketTracer_GdSOLqZo6x.png)
+
+Выполняем настройку маршрутизатора (в режиме глобальной конфигурации):
+
+```
+no ip domain-lookup
+hostname S1
+!
+line console 0
+ password cisco
+ login
+!
+line vty 0 15
+ password class
+ login
+!
+enable secret class
+!
+service password-encryption
+!
+banner motd #
+Unauthorized access is strictly prohibited.#
+```
