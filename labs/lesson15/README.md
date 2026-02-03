@@ -56,7 +56,7 @@ service password-encryption
 banner motd #
 Ne znaesh, ne trogai! #
 !
-clock timezone UTC 3
+clock timezone MSK 0
 !
 ```
 
@@ -84,7 +84,7 @@ service password-encryption
 banner motd #
 Uhodi!!#
 !
-clock timezone UTC 3
+clock timezone MSK 0
 !
 ```
 
@@ -213,4 +213,4 @@ interface g0/0/1.1000
 - [S1](conf/S1.conf)
 - [S2](conf/S2.conf)
 - [R1](conf/R1.conf)
-- [Cisco PT](lesson13.pkt)
+- [Cisco PT](lesson15.pkt)
