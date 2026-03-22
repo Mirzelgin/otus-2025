@@ -378,10 +378,52 @@ ipv6 dhcp pool R1-STATELESS
 
 ```
 !
-
+interface gi0/1
+ ipv6 nd other-config-flag
+ ipv6 dhcp server R1-STATELESS
 !
 ```
 
+Проверим что получил компьютер
+
+![](img/2026-03-22_20-43-27.png)
+
 ## Настройка и проверка состояния DHCPv6 сервера на R1
+Создадим и настроим пул `R2-STATEFUL`
+
+```
+!
+ipv6 dhcp pool R2-STATEFUL
+ address prefix 2001:db8:acad:3:aaa::/80
+ dns-server 2001:db8:acad::254
+ domain-name STATELESS.com
+!
+```
+
+Настроим интерфейс для использования созданного пула
+
+```
+!
+interface gi0/0
+ ipv6 dhcp server R2-STATEFUL
+!
+```
 
 ## Настройка и проверка DHCPv6 Relay на R2
+Настроим ретрансляцию DHCPv6 на R2
+
+```
+!
+interface gi0/1
+ ipv6 nd managed-config-flag
+ ipv6 dhcp relay destination 2001:db8:acad:2::1 gi0/0
+!
+```
+
+Проверим что получил компьютер
+
+![](img/2026-03-22_22-18-37.png)
+
+И то что выдал маршрутизатор **R1**
+
+![](img/2026-03-22_22-22-16.png)
