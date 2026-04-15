@@ -28,30 +28,11 @@
 - [Настройка и проверка статического NAT для IPv4](#настройка-и-проверка-статического-nat-для-ipv4)
 
 ## Создание сети и настройка основных параметров устройства
-### Произведём базовую настройку маршрутизаторов
+В частности опишу настройку интерфейсов и IP-адресацию:
 
 **R1:**
 
 ```
-en
-conf t
-hostname R1
-no ip domain lookup
-service password-encryption
-enable secret class
-!
-line con 0
- password cisco
- login
- logging synchronous
-!
-line vty 0 4
- password cisco
- login
-!
-banner motd #
-Unauthorized access is strictly prohibited!#
-!
 int e0/0
  ip addr 209.165.200.230 255.255.255.248
  no shutdown
@@ -59,64 +40,24 @@ int e0/0
 int e0/1
  ip addr 192.168.1.1 255.255.255.0
  no shutdown
+!
+ip route 0.0.0.0 0.0.0.0 209.165.200.225
 ```
 
 **R2:**
 
 ```
-en
-conf t
-hostname R2
-no ip domain lookup
-service password-encryption
-enable secret class
-!
-line con 0
- password cisco
- login
- logging synchronous
-!
-line vty 0 4
- password cisco
- login
-!
-banner motd #
-Unauthorized access is strictly prohibited!#
-!
 int e0/0
  ip addr 209.165.200.225 255.255.255.248
  no shutdown
 !
 int lo1
  ip addr 209.165.200.1 255.255.255.224
-!
-ip route 0.0.0.0 0.0.0.0 209.165.200.230
 ```
-
-### Произведём базовую настройку коммутаторов
 
 **S1:**
 
 ```
-en
-conf t
-hostname S1
-no ip domain lookup
-service password-encryption
-enable secret class
-!
-line con 0
- password cisco
- login
- logging synchronous
-!
-line vty 0 4
- password cisco
- login
-!
-banner motd #
-Unauthorized access is strictly prohibited!#
-!
 int vlan 1
  ip addr 192.168.1.11 255.255.255.0
  no shutdown
@@ -128,25 +69,6 @@ int e0/3
 **S2:**
 
 ```
-en
-conf t
-hostname S2
-no ip domain lookup
-service password-encryption
-enable secret class
-!
-line con 0
- password cisco
- login
- logging synchronous
-!
-line vty 0 4
- password cisco
- login
-!
-banner motd #
-Unauthorized access is strictly prohibited!#
-!
 int vlan 1
  ip addr 192.168.1.12 255.255.255.0
  no shutdown
@@ -156,5 +78,96 @@ int ra e0/2-3
 ```
 
 ## Настройка и проверка NAT для IPv4
+Настроим NAT за 5 шагов:
+
+1. Настроим ACL-список 
+2. Определим пул доступных нам для преобразования адресов
+3. Связываем ACL и пул
+4. Указываем интерфейс снаружи
+5. Указываем интерфейс изнутри
+
+```
+ip access-list standard NAT_CLIENT
+ permit 192.168.1.0 0.0.0.255
+ exit
+!
+ip nat pool PUBLIC_ACCESS 209.165.200.226 209.165.200.228 netmask 255.255.255.248
+ip nat inside source list NAT_CLIENT pool PUBLIC_ACCESS
+!
+interface e0/0
+ ip nat outside
+!
+interface e0/1
+ ip nat inside
+```
+
+### Проверяем
+Проверим работоспособность настроенного NAT отправив ping с компьютер **PC-B** до адреса 209.165.200.1 настроенного на **R2**
+
+![](img/2026-04-15_21-02-03.png)
+
+Видим что ping прошёл успешно. Посмотрим таблицу NAT на маршрутизаторе **R1**
+
+![](img/2026-04-15_20-56-29.png)
+
+Наш **PC-B** проходя через NAT получил адрес 209.165.200.226, который является первым из настроенного нами пула.
+
+Проделаем тоже самое с компьютера **PC-A**
+
+![](img/2026-04-15_21-02-48.png)
+
+И посмотрим таблицу NAT на маршрутизаторе **R1**
+
+![](img/2026-04-15_21-05-05.png)
+
+Видим что у нас добавилась запись с адресом **PC-A** и вторым адресом из пула NAT.
+
 ## Настройка и проверка PAT для IPv4
+Настройки идентичны настройкам предыдущего раздела за исключением команды связывающей ACL и пул. Заменим её
+
+```
+no ip nat inside source list NAT_CLIENT pool PUBLIC_ACCESS
+ip nat inside source list NAT_CLIENT pool PUBLIC_ACCESS overload
+```
+
+Таким образом получаем настроенный PAT или NAT с перегрузкой
+
+### Проверяем
+Отправим ping сразу с двух компьютеров и заглянем в таблицу NAT на маршрутизаторе
+
+![](img/2026-04-15_21-36-42.png)
+
+Видим что запросы компьютеров транслируются в один внешний адрес что отличается от поведения динамического NAT в прошлом разделе. 
+
+### NAT с перегрузкой интерфейса
+Использование PAT в связке с пулом не очень эффективно т.к. используется не весь пул а только один адрес. Корректней будет использовать адрес интерфейса для PAT.
+
+```
+ip nat inside source list NAT_CLIENT interface e0/0 overload
+```
+
 ## Настройка и проверка статического NAT для IPv4
+Статический NAT связывает внутренний и внешний адрес, данная связка остаётся постоянной. Настроим сопоставление между адресами 192.168.1.2 b 209.165.200.1.
+
+Удалим из конфигурации настройку связывающую ACL и пул оставшуюся от предыдущих разделов, она нам больше не понадобится как и пул с ACL
+
+```
+no nat ip nat inside source list NAT_CLIENT pool PUBLIC_ACCESS overload
+```
+
+Выполним настройку статического NAT
+
+```
+ip nat inside source static 192.168.1.2 209.165.200.229
+```
+
+### Проверка
+Для начала взглянем на таблицу NAT и увидим там сопоставление
+
+![](img/2026-04-15_22-07-49.png)
+
+Выполним ping с **PC-A** до адреса 209.165.200.1 настроенного на **R2** и снова посмотрим в таблицу NAT
+
+![](img/2026-04-15_22-10-25.png)
+
+Обратим внимание что ping с компьютера **PC-B** не проходит т.к. для его адреса нет сопоставления
