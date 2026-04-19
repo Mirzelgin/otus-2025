@@ -145,4 +145,15 @@ int e0/0
 
 ### Удалённый доступ
 
+```
+ip domain-name ccna-lab.com
+ip ssh version 2
+crypto key generate rsa general-keys modulus 1024
+username SSHadmin privilege 15 secret $cisco123!
+!
+line vty 0 5
+ transport input ssh
+ login local
+```
+
 ## Настройка и проверка списков расширенного контроля доступа
