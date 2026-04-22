@@ -1,4 +1,4 @@
-# Конфигурация безопасности коммутатора
+# Настройка и проверка расширенных списков контроля доступа
 ## Исходные данные
 
 > [!NOTE]
@@ -66,6 +66,11 @@ int e0/3
  switchport mode access
  switchport access vlan 999
  shutdown
+int vlan 20
+ ip addr 10.20.0.2 255.255.255.0
+ no sh
+!
+ip route 0.0.0.0 0.0.0.0 10.20.0.1
 ```
 
 **S2:**
@@ -81,6 +86,11 @@ int e0/3
  switchport mode access
  switchport access vlan 999
  shutdown
+int vlan 20
+ ip addr 10.20.0.3 255.255.255.0
+ no sh
+!
+ip route 0.0.0.0 0.0.0.0 10.20.0.1
 ```
 
 ### Магистральные каналы
@@ -144,6 +154,7 @@ int e0/0
 ```
 
 ### Удалённый доступ
+Настроим доступ по ssh, а также доступ через web
 
 ```
 ip domain-name ccna-lab.com
@@ -151,9 +162,68 @@ ip ssh version 2
 crypto key generate rsa general-keys modulus 1024
 username SSHadmin privilege 15 secret $cisco123!
 !
-line vty 0 5
+line vty 0 4
  transport input ssh
  login local
 ```
 
+На **R1** активируем web сервер
+
+```
+ip http secure-server
+ip http authentication local
+```
+
 ## Настройка и проверка списков расширенного контроля доступа
+Списком `SALES_ACL` мы выполним следующие политики:
+- Сеть Sales не может использовать SSH в сети Management (но в  другие сети SSH разрешен)
+- Сеть Sales не имеет доступа к IP-адресам в сети Management с помощью любого веб-протокола. Сеть Sales также не имеет доступа к интерфейсам R1 кроме Loopback1 с помощью любого веб-протокола. Разрешён весь другой веб-трафик
+- Сеть Sales не может отправлять эхо-запросы ICMP в сети Operations или Management. Разрешены эхо-запросы ICMP к другим адресатам
+
+```
+ip access-list extended SALES_ACL
+ remark BLOCK SSH,WEB TO MANAGEMENT
+ deny tcp any 10.20.0.0 0.0.0.255 eq 22 80 443
+ remark BLOCK WEB TO ROUTER IP
+ deny tcp any host 10.30.0.1 eq 80 443
+ deny tcp any host 10.40.0.1 eq 80 443
+ remark BLOCK ICMP TO OPERATIONS
+ deny icmp any 10.30.0.1 0.0.0.255 echo
+ remark BLOCK ICMP TO MANAGEMENT
+ deny icmp any 10.20.0.1 0.0.0.255 echo
+ permit ip any any
+```
+
+Применим данный список на интерфейс `e0/0.40` по направлению `in`
+
+```
+int e0/0.40
+ ip access-group SALES_ACL in
+```
+
+Списком `OPERATIONS_ACL` выполним следующие политики:
+- Cеть Operations  не может отправлять ICMP эхозапросы в сеть Sales. Разрешены эхо-запросы ICMP к другим адресатам
+
+```
+ip access-list extended OPERATIONS_ACL
+ remark BLOCK ICMP FROM OPERATIONS TO SALES 
+ deny icmp any 10.40.0.1 0.0.0.255 echo
+ permit ip any any
+```
+
+Применим данный список на интерфейс `e0/0.30` по направлению `in`
+
+```
+int e0/0.30
+ ip access-group OPERATIONS_ACL in
+```
+
+Проведём различные тесты и посмотрим счетчики ACL
+
+![](img/2026-04-22_22-51-26.png)
+
+По результата тестов списки отрабатывают корректно, доступ к интерфейсу loopback1 маршрутизатора **R1** сохранён
+
+![](img/2026-04-22_22-52-58.png)
+
+![](img/2026-04-22_22-56-04.png)
